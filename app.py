@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import asyncio
-import itertools
 import json
 import os
 import secrets
@@ -14,7 +13,7 @@ from connect4 import PLAYER1, PLAYER2, Connect4
 
 JOIN = {}
 
-WATCH= {}
+WATCH = {}
 
 
 async def error(websocket, message):
@@ -27,8 +26,8 @@ async def error(websocket, message):
         "message": message,
     }
     await websocket.send(json.dumps(event))
-    
-    
+
+
 async def replay(websocket, game):
     """
     Send previous moves.
@@ -91,34 +90,27 @@ async def start(websocket):
 
     """
     # Initialize a Connect Four game, the set of WebSocket connections
-    # receiving moves from this game, and secret access token.
+    # receiving moves from this game, and secret access tokens.
     game = Connect4()
     connected = {websocket}
 
     join_key = secrets.token_urlsafe(12)
     JOIN[join_key] = game, connected
-    
+
     watch_key = secrets.token_urlsafe(12)
     WATCH[watch_key] = game, connected
 
     try:
-        # Send the secret access token to the browser of the first player,
-        # where it'll be used for building a "join" link.
+        # Send the secret access tokens to the browser of the first player,
+        # where they'll be used for building "join" and "watch" links.
         event = {
             "type": "init",
             "join": join_key,
             "watch": watch_key,
         }
-        print(join_key)
         await websocket.send(json.dumps(event))
         # Receive and process moves from the first player.
         await play(websocket, game, PLAYER1, connected)
-
-        # Temporary - for testing.
-        # print("first player started game", id(game))
-        # async for message in websocket:
-        #     print("first player sent", message)
-
     finally:
         del JOIN[join_key]
         del WATCH[watch_key]
@@ -143,12 +135,6 @@ async def join(websocket, join_key):
         await replay(websocket, game)
         # Receive and process moves from the second player.
         await play(websocket, game, PLAYER2, connected)
-
-        # Temporary - for testing.
-        # print("second player joined game", id(game))
-        # async for message in websocket:
-        #     print("second player sent", message)
-
     finally:
         connected.remove(websocket)
 
@@ -201,14 +187,12 @@ async def main():
     # Set the stop condition when receiving SIGTERM.
     loop = asyncio.get_running_loop()
     stop = loop.create_future()
-    loop.ass_signal_handler(signal.SIGTERM, stop.set_result, None)
-    
+    loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
+
     port = int(os.environ.get("PORT", "8001"))
     async with websockets.serve(handler, "", port):
-        # await asyncio.Future()  # run forever
         await stop
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-    
